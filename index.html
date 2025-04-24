@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>날아라! 안지민</title>
+  <title>밥먹자! 안지민</title>
   <style>
     body {
       background-color: #f0f0f0;
@@ -31,6 +31,13 @@
       font-weight: bold;
     }
   </style>
+</head>
+<body>
+  <p id="subtitle">밥먹자! 안지민</p>
+  <p id="score">현재점수: 0</p>
+  <main>
+    <canvas id="canvas"></canvas>
+  </main>
   <script>
     const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 500;
@@ -43,6 +50,8 @@
     const BASE_OBSTACLE_SPEED = 4;
     const BASE_OBSTACLE_FREQUENCY = 90;
     const SCORE_PER_OBSTACLE = 10;
+    const VILLAIN_WIDTH = 150;
+    const VILLAIN_HEIGHT = 300;
 
     const ASSETS = {
       sounds: {
@@ -80,17 +89,159 @@
           './character/doyun-obstacle.png',
           './character/yeonki-obstacle.png',
           './character/sangwoo-obstacle.png'
+          // 6번째는 없음, 모든 장애물이 랜덤 등장
         ]
       }
     };
+
+    window.onload = () => {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = CANVAS_WIDTH;
+      canvas.height = CANVAS_HEIGHT;
+
+      let gameStarted = false;
+      let gameOver = false;
+      let score = 0;
+      let jump = false;
+      let timer = 0;
+      let bgIndex = 0;
+      let obstacleSpeed = BASE_OBSTACLE_SPEED;
+      let obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
+      let villainY = CANVAS_HEIGHT; // 아래에서 등장
+      let villainTargetY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
+
+      const scoreText = document.getElementById('score');
+
+      const runnerSit = new Image(); runnerSit.src = ASSETS.images.runnerSit;
+      const runnerFly = new Image(); runnerFly.src = ASSETS.images.runnerFly;
+      const runnerCrash = new Image(); runnerCrash.src = ASSETS.images.runnerCrash;
+      const bgImages = ASSETS.images.backgrounds.map(src => {
+        const img = new Image(); img.src = src; return img;
+      });
+      const villainImages = ASSETS.images.villains.map(src => {
+        const img = new Image(); img.src = src; return img;
+      });
+      const obstacleImagesPerStage = ASSETS.images.obstacles.map(src => {
+        const img = new Image(); img.src = src; return img;
+      });
+
+      const runner = {
+        x: RUNNER_START_X,
+        y: RUNNER_START_Y,
+        width: RUNNER_WIDTH,
+        height: RUNNER_HEIGHT,
+        draw() {
+          ctx.drawImage(gameOver ? runnerCrash : (jump ? runnerFly : runnerSit), this.x, this.y, this.width, this.height);
+        }
+      };
+
+      class Obstacle {
+        constructor(image) {
+          this.x = CANVAS_WIDTH;
+          this.y = Math.random() * (CANVAS_HEIGHT - 80) + 30;
+          this.width = 50;
+          this.height = 50;
+          this.image = image;
+          this.frame = 0;
+        }
+        draw(wave = false) {
+          if (wave) this.y += Math.sin(this.frame++ / 5) * 2;
+          ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+        }
+      }
+
+      const obstacles = [];
+
+      function drawBackground() {
+        ctx.drawImage(bgImages[bgIndex], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      }
+
+      function drawVillain() {
+        const villain = villainImages[bgIndex];
+        ctx.drawImage(villain, CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
+      }
+
+      function isCollision(a, b) {
+        return !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
+      }
+
+      function animate() {
+        if (gameOver) return;
+
+        requestAnimationFrame(animate);
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        drawBackground();
+
+        // 악당 등장/유지
+        if (villainY > villainTargetY) villainY -= 5;
+        drawVillain();
+
+        // 장애물 생성
+        if (timer % obstacleFrequency === 0) {
+          if (bgIndex < 5) {
+            obstacles.push(new Obstacle(obstacleImagesPerStage[bgIndex]));
+          } else {
+            // 6스테이지: 랜덤 등장 + 파동
+            for (let i = 0; i < 2; i++) {
+              const randomImage = obstacleImagesPerStage[Math.floor(Math.random() * obstacleImagesPerStage.length)];
+              obstacles.push(new Obstacle(randomImage));
+            }
+          }
+        }
+
+        // 장애물 움직임 및 충돌 검사
+        obstacles.forEach((obstacle, idx) => {
+          const wave = bgIndex === 5;
+          obstacle.x -= obstacleSpeed;
+          obstacle.draw(wave);
+          if (isCollision(runner, obstacle)) {
+            gameOver = true;
+          }
+          if (obstacle.x < -obstacle.width) {
+            obstacles.splice(idx, 1);
+            score += SCORE_PER_OBSTACLE;
+            scoreText.textContent = '현재점수: ' + score;
+
+            if (score % 200 === 0) {
+              // 스테이지 전환
+              bgIndex = Math.min(5, Math.floor(score / 200));
+              obstacleSpeed += 1;
+              obstacleFrequency = Math.max(20, obstacleFrequency - 10);
+              villainY = CANVAS_HEIGHT; // 새 악당 등장 애니메이션
+            }
+          }
+        });
+
+        runner.draw();
+        runner.y += jump ? -JUMP_SPEED : JUMP_SPEED;
+        if (runner.y < MAX_JUMP_HEIGHT) jump = false;
+        if (runner.y > RUNNER_START_Y) runner.y = RUNNER_START_Y;
+
+        timer++;
+      }
+
+      document.addEventListener('keydown', e => {
+        if (e.code === 'Space') jump = true;
+      });
+
+      document.addEventListener('keyup', e => {
+        if (e.code === 'Space') jump = false;
+      });
+
+      canvas.addEventListener('click', () => {
+        if (!gameStarted) {
+          gameStarted = true;
+          animate();
+        }
+      });
+
+      const titleImage = new Image();
+      titleImage.src = ASSETS.images.gameStart;
+      titleImage.onload = () => {
+        ctx.drawImage(titleImage, (CANVAS_WIDTH - 473) / 2, (CANVAS_HEIGHT - 316) / 2, 473, 316);
+      };
+    };
   </script>
-  <script src="game.js"></script>
-</head>
-<body>
-  <p id="subtitle">날아라! 안지민</p>
-  <p id="score">현재점수: 0</p>
-  <main>
-    <canvas id="canvas"></canvas>
-  </main>
 </body>
 </html>
