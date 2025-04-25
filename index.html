@@ -36,6 +36,7 @@
   <p id="subtitle">밥먹자! 안지민</p>
   <p id="score">현재점수: 0</p>
   <main><canvas id="canvas"></canvas></main>
+
   <script>
     const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
     const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
@@ -46,12 +47,6 @@
     const VILLAIN_WIDTH = 150 * 2, VILLAIN_HEIGHT = 200 * 1.5;
 
     const ASSETS = {
-      sounds: {
-        jump: './sounds/jump.mp3',
-        bgm: './sounds/bgm.mp3',
-        score: './sounds/score.mp3',
-        defeat: './sounds/defeat1.mp3'
-      },
       images: {
         title: './background/title.png',
         startBtn: './background/gamestart.png',
@@ -96,21 +91,22 @@
       let score = 0, timer = 0, jump = false;
       let bgIndex = 0, villainY = CANVAS_HEIGHT, targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
       let obstacleSpeed = BASE_OBSTACLE_SPEED, obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
-      let villainReady = false, villainExiting = false;
+      let villainReady = false;
 
       const scoreText = document.getElementById('score');
 
       const runnerSit = new Image(); runnerSit.src = ASSETS.images.runnerSit;
       const runnerFly = new Image(); runnerFly.src = ASSETS.images.runnerFly;
       const runnerCrash = new Image(); runnerCrash.src = ASSETS.images.runnerCrash;
-      const bgImages = ASSETS.images.backgrounds.map(src => { let i = new Image(); i.src = src; return i; });
-      const villainImages = ASSETS.images.villains.map(src => { let i = new Image(); i.src = src; return i; });
-      const obstacleImages = ASSETS.images.obstacles.map(src => { let i = new Image(); i.src = src; return i; });
+      const bgImages = ASSETS.images.backgrounds.map(src => { const i = new Image(); i.src = src; return i; });
+      const villainImages = ASSETS.images.villains.map(src => { const i = new Image(); i.src = src; return i; });
+      const obstacleImages = ASSETS.images.obstacles.map(src => { const i = new Image(); i.src = src; return i; });
 
       const startBackground = new Image(); startBackground.src = ASSETS.images.title;
       const startButton = new Image(); startButton.src = ASSETS.images.startBtn;
       const gameOverImage = new Image(); gameOverImage.src = ASSETS.images.gameOver;
       const restartImage = new Image(); restartImage.src = ASSETS.images.restart;
+
       const runner = {
         x: RUNNER_START_X,
         y: RUNNER_START_Y,
@@ -151,6 +147,7 @@
       function isCollision(a, b) {
         return !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
       }
+
       function animate() {
         if (gameOver) return;
 
@@ -158,7 +155,7 @@
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         drawBackground();
 
-        // 악당 등장 애니메이션
+        // 악당 등장
         if (!villainReady && villainY > targetVillainY) {
           villainY -= 5;
         } else if (!villainReady && villainY <= targetVillainY) {
@@ -168,12 +165,11 @@
 
         drawVillain();
 
-        // 장애물 생성 (악당 등장 완료 후부터)
+        // 장애물 생성
         if (villainReady && timer % obstacleFrequency === 0) {
           if (bgIndex < 5) {
             obstacles.push(new Obstacle(obstacleImages[bgIndex]));
           } else {
-            // 마지막 스테이지: 랜덤 등장 + 파동 궤적
             for (let i = 0; i < 2; i++) {
               const img = obstacleImages[Math.floor(Math.random() * obstacleImages.length)];
               obstacles.push(new Obstacle(img));
@@ -181,32 +177,25 @@
           }
         }
 
-        // 장애물 이동 및 충돌 판정
         obstacles.forEach((obs, idx) => {
           obs.x -= obstacleSpeed;
           obs.draw(bgIndex === 5);
-          if (isCollision(runner, obs)) {
-            gameOver = true;
-          }
+          if (isCollision(runner, obs)) gameOver = true;
           if (obs.x < -obs.width) {
             obstacles.splice(idx, 1);
             score += SCORE_PER_OBSTACLE;
             scoreText.textContent = '현재점수: ' + score;
 
-            // 스테이지 전환 (200점마다)
             if (score % 200 === 0) {
               villainReady = false;
-
-              // 악당 퇴장 애니메이션
               let exitInterval = setInterval(() => {
                 villainY += 5;
                 if (villainY >= CANVAS_HEIGHT) {
                   clearInterval(exitInterval);
-                  // 다음 스테이지
                   bgIndex = Math.min(5, Math.floor(score / 200));
                   obstacleSpeed += 1;
                   obstacleFrequency = Math.max(15, obstacleFrequency - 10);
-                  villainY = CANVAS_HEIGHT; // 초기화
+                  villainY = CANVAS_HEIGHT;
                   targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
                 }
               }, 30);
@@ -221,50 +210,40 @@
 
         timer++;
       }
-      // 키보드 입력
+
+      // 키 입력
       document.addEventListener('keydown', e => {
         if (e.code === 'Space') jump = true;
       });
-
       document.addEventListener('keyup', e => {
         if (e.code === 'Space') jump = false;
       });
 
-      // 캔버스 클릭 처리
+      // 클릭 이벤트
       canvas.addEventListener('click', e => {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
         if (!gameStarted) {
-          // 게임 시작 버튼 클릭
-          if (
-            x >= (CANVAS_WIDTH - 200) / 2 &&
-            x <= (CANVAS_WIDTH + 200) / 2 &&
-            y >= (CANVAS_HEIGHT + 100) / 2 &&
-            y <= (CANVAS_HEIGHT + 200) / 2
-          ) {
+          if (x >= (CANVAS_WIDTH - 200) / 2 && x <= (CANVAS_WIDTH + 200) / 2 &&
+              y >= (CANVAS_HEIGHT + 100) / 2 && y <= (CANVAS_HEIGHT + 200) / 2) {
             gameStarted = true;
             animate();
           }
         } else if (gameOver) {
-          // 재시작 버튼 클릭
-          if (
-            x >= (CANVAS_WIDTH - 100) / 2 &&
-            x <= (CANVAS_WIDTH + 100) / 2 &&
-            y >= (CANVAS_HEIGHT + 50) / 2 &&
-            y <= (CANVAS_HEIGHT + 100) / 2
-          ) {
+          if (x >= (CANVAS_WIDTH - 100) / 2 && x <= (CANVAS_WIDTH + 100) / 2 &&
+              y >= (CANVAS_HEIGHT + 50) / 2 && y <= (CANVAS_HEIGHT + 100) / 2) {
             location.reload();
           }
         }
       });
 
-      // 게임 시작 화면 표시
-      titleImage.onload = () => {
-        ctx.drawImage(titleImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        startButtonImage.onload = () => {
-          ctx.drawImage(startButtonImage, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
+      // 시작 화면 표시
+      startBackground.onload = () => {
+        ctx.drawImage(startBackground, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        startButton.onload = () => {
+          ctx.drawImage(startButton, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
         };
       };
 
