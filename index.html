@@ -36,7 +36,6 @@
   <p id="subtitle">밥먹자! 안지민</p>
   <p id="score">현재점수: 0</p>
   <main><canvas id="canvas"></canvas></main>
-
   <script>
     const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
     const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
@@ -69,23 +68,22 @@
       const runnerSit = new Image();
       const runnerFly = new Image();
 
-      let imagesLoaded = 0;
-      const totalImages = 2;
-
-      const onImageLoaded = () => {
-        imagesLoaded++;
-        if (imagesLoaded === totalImages) {
-          drawStartScreen();
-        }
-      };
-
-      titleImage.onload = onImageLoaded;
-      startBtnImage.onload = onImageLoaded;
-
       titleImage.src = ASSETS.title;
       startBtnImage.src = ASSETS.startBtn;
       runnerSit.src = ASSETS.runnerSit;
       runnerFly.src = ASSETS.runnerFly;
+
+      // 시작 이미지 로드 완료 후 시작화면 출력
+      let loadedImages = 0;
+      function checkAllImagesLoaded() {
+        loadedImages++;
+        if (loadedImages === 2) {
+          drawStartScreen();
+        }
+      }
+
+      titleImage.onload = checkAllImagesLoaded;
+      startBtnImage.onload = checkAllImagesLoaded;
 
       function drawStartScreen() {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -97,6 +95,7 @@
         requestAnimationFrame(animate);
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+        // 점프 처리
         if (jump && runnerY > MAX_JUMP_HEIGHT) {
           runnerY -= JUMP_SPEED;
         } else if (!jump && runnerY < RUNNER_START_Y) {
@@ -107,6 +106,7 @@
         ctx.drawImage(runnerImage, RUNNER_START_X, runnerY, RUNNER_WIDTH, RUNNER_HEIGHT);
       }
 
+      // 클릭 시 게임 시작 처리
       canvas.addEventListener('click', e => {
         if (!gameStarted) {
           const rect = canvas.getBoundingClientRect();
