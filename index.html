@@ -67,6 +67,13 @@ const ASSETS = {
     './character/yeonki-basic.png',
     './character/sangwoo-basic.png',
     './character/boss-basic.png'
+  ],
+  obstacles: [
+    './character/samin-obstacle.png',
+    './character/sohyun-obstacle.png',
+    './character/doyun-obstacle.png',
+    './character/yeonki-obstacle.png',
+    './character/sangwoo-obstacle.png'
   ]
 };
 
@@ -82,7 +89,6 @@ window.onload = () => {
   let timer = 0;
   let jump = false;
   let runnerY = RUNNER_START_Y;
-
   let bgIndex = 0;
   let villainY = CANVAS_HEIGHT;
   let targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
@@ -99,6 +105,7 @@ window.onload = () => {
   const runnerCrash = new Image();
   const bgImages = ASSETS.backgrounds.map(src => { const i = new Image(); i.src = src; return i; });
   const villainImages = ASSETS.villains.map(src => { const i = new Image(); i.src = src; return i; });
+  const obstacleImages = ASSETS.obstacles.map(src => { const i = new Image(); i.src = src; return i; });
 
   titleImage.src = ASSETS.title;
   startBtnImage.src = ASSETS.startBtn;
@@ -106,13 +113,16 @@ window.onload = () => {
   runnerFly.src = ASSETS.runnerFly;
   runnerCrash.src = ASSETS.runnerCrash;
 
-  let loaded = 0;
-  const totalToLoad = 2;
+  let imagesToLoad = 2;
+  let loadedImages = 0;
 
   function checkLoaded() {
-    loaded++;
-    if (loaded === totalToLoad) drawStartScreen();
+    loadedImages++;
+    if (loadedImages === imagesToLoad) {
+      drawStartScreen();
+    }
   }
+
   titleImage.onload = checkLoaded;
   startBtnImage.onload = checkLoaded;
 
@@ -123,15 +133,16 @@ window.onload = () => {
   }
 
   class Obstacle {
-    constructor() {
+    constructor(image) {
       this.x = CANVAS_WIDTH;
       this.y = Math.random() * (CANVAS_HEIGHT - 80) + 30;
       this.width = 50;
       this.height = 50;
+      this.image = image;
+      this.frame = 0;
     }
     draw() {
-      ctx.fillStyle = 'gray';
-      ctx.fillRect(this.x, this.y, this.width, this.height);
+      ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
     }
   }
 
@@ -151,24 +162,28 @@ window.onload = () => {
 
   function animate() {
     if (gameOver) return;
-
     requestAnimationFrame(animate);
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
     drawBackground();
 
-    // 악당 등장
     if (!villainReady && villainY > targetVillainY) {
       villainY -= 5;
     } else if (!villainReady) {
       villainY = targetVillainY;
       villainReady = true;
     }
-
     drawVillain();
 
-    // 장애물 생성
     if (villainReady && timer % obstacleFrequency === 0) {
-      obstacles.push(new Obstacle());
+      if (bgIndex < 5) {
+        obstacles.push(new Obstacle(obstacleImages[bgIndex]));
+      } else {
+        for (let i = 0; i < 2; i++) {
+          const randomImg = obstacleImages[Math.floor(Math.random() * obstacleImages.length)];
+          obstacles.push(new Obstacle(randomImg));
+        }
+      }
     }
 
     obstacles.forEach((obs, idx) => {
@@ -183,13 +198,11 @@ window.onload = () => {
         scoreText.textContent = '현재점수: ' + score;
 
         if (score % 200 === 0 && !gameOver) {
-          // 악당 퇴장
           villainReady = false;
           let exitInterval = setInterval(() => {
             villainY += 5;
             if (villainY >= CANVAS_HEIGHT) {
               clearInterval(exitInterval);
-              // 스테이지 전환
               bgIndex = Math.min(bgImages.length - 1, Math.floor(score / 200));
               villainY = CANVAS_HEIGHT;
               targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
@@ -204,7 +217,6 @@ window.onload = () => {
     const runnerImage = jump || runnerY < RUNNER_START_Y ? runnerFly : runnerSit;
     ctx.drawImage(runnerImage, RUNNER_START_X, runnerY, RUNNER_WIDTH, RUNNER_HEIGHT);
 
-    // 점프 처리
     if (jump && runnerY > MAX_JUMP_HEIGHT) {
       runnerY -= JUMP_SPEED;
     } else if (!jump && runnerY < RUNNER_START_Y) {
@@ -214,7 +226,6 @@ window.onload = () => {
     timer++;
   }
 
-  // 클릭 처리
   canvas.addEventListener('click', e => {
     if (!gameStarted) {
       const rect = canvas.getBoundingClientRect();
@@ -229,7 +240,6 @@ window.onload = () => {
     }
   });
 
-  // 키 입력
   document.addEventListener('keydown', e => {
     if (e.code === 'Space') jump = true;
   });
