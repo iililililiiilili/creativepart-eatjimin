@@ -40,11 +40,11 @@
   <script>
     const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
     const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
-    const VILLAIN_WIDTH = 300, VILLAIN_HEIGHT = 300;
     const RUNNER_START_X = 10, RUNNER_START_Y = 400;
     const JUMP_SPEED = 6, MAX_JUMP_HEIGHT = 20;
     const BASE_OBSTACLE_SPEED = 4, BASE_OBSTACLE_FREQUENCY = 90;
     const SCORE_PER_OBSTACLE = 10;
+    const VILLAIN_WIDTH = 150 * 2, VILLAIN_HEIGHT = 200 * 1.5;
 
     const ASSETS = {
       title: './background/title.png',
@@ -87,156 +87,136 @@
 
       let gameStarted = false, gameOver = false;
       let score = 0, timer = 0, jump = false;
-      let runnerY = RUNNER_START_Y;
+      let bgIndex = 0;
       let villainY = CANVAS_HEIGHT, targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
+      let obstacleSpeed = BASE_OBSTACLE_SPEED, obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
       let villainReady = false;
-      let bgIndex = 0, obstacleSpeed = BASE_OBSTACLE_SPEED, obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
+      let isExiting = false;
 
       const scoreText = document.getElementById('score');
-      const images = {};
 
-      let loaded = 0, total = 17; // 전체 로딩할 이미지 수
-      function checkLoaded() {
-        loaded++;
-        if (loaded >= total) {
-          drawStartScreen();
-        }
-      }
+      const loadImage = src => { const img = new Image(); img.src = src; return img; };
+      const titleImage = loadImage(ASSETS.title);
+      const startBtnImage = loadImage(ASSETS.startBtn);
+      const gameOverImage = loadImage(ASSETS.gameOver);
+      const restartImage = loadImage(ASSETS.restart);
+      const runnerSit = loadImage(ASSETS.runnerSit);
+      const runnerFly = loadImage(ASSETS.runnerFly);
+      const runnerCrash = loadImage(ASSETS.runnerCrash);
+      const bgImages = ASSETS.backgrounds.map(loadImage);
+      const villainImages = ASSETS.villains.map(loadImage);
+      const obstacleImages = ASSETS.obstacles.map(loadImage);
 
-      function loadImage(name, src) {
-        images[name] = new Image();
-        images[name].src = src;
-        images[name].onload = checkLoaded;
-      }
-
-      loadImage('title', ASSETS.title);
-      loadImage('startBtn', ASSETS.startBtn);
-      loadImage('gameOver', ASSETS.gameOver);
-      loadImage('restart', ASSETS.restart);
-      loadImage('runnerSit', ASSETS.runnerSit);
-      loadImage('runnerFly', ASSETS.runnerFly);
-      loadImage('runnerCrash', ASSETS.runnerCrash);
-      ASSETS.backgrounds.forEach((src, idx) => loadImage('bg' + idx, src));
-      ASSETS.villains.forEach((src, idx) => loadImage('villain' + idx, src));
-      ASSETS.obstacles.forEach((src, idx) => loadImage('obstacle' + idx, src));
-
+      let runnerY = RUNNER_START_Y;
       const obstacles = [];
 
       class Obstacle {
-        constructor(img) {
+        constructor(image) {
           this.x = CANVAS_WIDTH;
           this.y = Math.random() * (CANVAS_HEIGHT - 80) + 30;
           this.width = 50;
           this.height = 50;
-          this.img = img;
+          this.image = image;
           this.frame = 0;
         }
         draw(wave = false) {
           if (wave) this.y += Math.sin(this.frame++ / 5) * 2;
-          ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+          ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
         }
       }
 
-      function isCollision(a, b) {
-        return !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
+      function drawBackground() {
+        ctx.drawImage(bgImages[bgIndex], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       }
 
-      function drawStartScreen() {
-        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        ctx.drawImage(images.title, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        ctx.drawImage(images.startBtn, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
+      function drawVillain() {
+        ctx.drawImage(villainImages[bgIndex], CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
       }
 
-      function drawGameOverScreen() {
-        ctx.drawImage(images.gameOver, (CANVAS_WIDTH - 300) / 2, (CANVAS_HEIGHT - 200) / 2, 300, 100);
-        ctx.drawImage(images.restart, (CANVAS_WIDTH - 100) / 2, (CANVAS_HEIGHT + 50) / 2, 100, 50);
+      function drawRunner() {
+        const img = gameOver ? runnerCrash : (jump || runnerY < RUNNER_START_Y ? runnerFly : runnerSit);
+        ctx.drawImage(img, RUNNER_START_X, runnerY, RUNNER_WIDTH, RUNNER_HEIGHT);
       }
 
       function animate() {
         if (gameOver) {
-          ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-          drawGameOverScreen();
+          ctx.drawImage(gameOverImage, (CANVAS_WIDTH - 300) / 2, (CANVAS_HEIGHT - 200) / 2, 300, 100);
+          ctx.drawImage(restartImage, (CANVAS_WIDTH - 100) / 2, (CANVAS_HEIGHT + 50) / 2, 100, 50);
           return;
         }
 
         requestAnimationFrame(animate);
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        ctx.drawImage(images['bg' + bgIndex], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        drawBackground();
 
-        if (!villainReady && villainY > targetVillainY) {
+        if (!villainReady && !isExiting) {
           villainY -= 5;
-        } else if (!villainReady && villainY <= targetVillainY) {
-          villainY = targetVillainY;
-          villainReady = true;
+          if (villainY <= targetVillainY) {
+            villainY = targetVillainY;
+            villainReady = true;
+          }
         }
 
-        ctx.drawImage(images['villain' + bgIndex], CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
+        if (isExiting) {
+          villainY += 5;
+          if (villainY >= CANVAS_HEIGHT) {
+            isExiting = false;
+            bgIndex = Math.min(5, Math.floor(score / 200));
+            villainReady = false;
+            obstacleSpeed += 1;
+            obstacleFrequency = Math.max(15, obstacleFrequency - 10);
+          }
+        }
+
+        drawVillain();
 
         if (villainReady && timer % obstacleFrequency === 0) {
           if (bgIndex < 5) {
-            obstacles.push(new Obstacle(images['obstacle' + bgIndex]));
+            obstacles.push(new Obstacle(obstacleImages[bgIndex]));
           } else {
             for (let i = 0; i < 2; i++) {
-              const img = images['obstacle' + (Math.floor(Math.random() * 5))];
+              const img = obstacleImages[Math.floor(Math.random() * obstacleImages.length)];
               obstacles.push(new Obstacle(img));
             }
           }
         }
 
-        obstacles.forEach((ob, idx) => {
-          ob.x -= obstacleSpeed;
-          ob.draw(bgIndex === 5);
-          if (isCollision({x: RUNNER_START_X, y: runnerY, width: RUNNER_WIDTH, height: RUNNER_HEIGHT}, ob)) {
-            gameOver = true;
-          }
-          if (ob.x < -ob.width) {
-            obstacles.splice(idx, 1);
-            score += SCORE_PER_OBSTACLE;
-            scoreText.textContent = '현재점수: ' + score;
-
-            if (score % 200 === 0) {
-              villainReady = false;
-              let exitInterval = setInterval(() => {
-                villainY += 5;
-                if (villainY >= CANVAS_HEIGHT) {
-                  clearInterval(exitInterval);
-                  bgIndex = Math.min(5, Math.floor(score / 200));
-                  obstacleSpeed += 1;
-                  obstacleFrequency = Math.max(20, obstacleFrequency - 10);
-                  villainY = CANVAS_HEIGHT;
-                }
-              }, 30);
-            }
-          }
+        obstacles.forEach((obs, idx) => {
+          obs.x -= obstacleSpeed;
+          obs.draw(bgIndex === 5);
+          if (obs.x < -obs.width) obstacles.splice(idx, 1);
         });
 
-        const runnerImage = (!gameOver)
-          ? (jump || runnerY < RUNNER_START_Y ? images.runnerFly : images.runnerSit)
-          : images.runnerCrash;
-        if (jump && runnerY > MAX_JUMP_HEIGHT) {
-          runnerY -= JUMP_SPEED;
-        } else if (!jump && runnerY < RUNNER_START_Y) {
-          runnerY += JUMP_SPEED;
-        }
-        ctx.drawImage(runnerImage, RUNNER_START_X, runnerY, RUNNER_WIDTH, RUNNER_HEIGHT);
+        drawRunner();
+
+        if (jump && runnerY > MAX_JUMP_HEIGHT) runnerY -= JUMP_SPEED;
+        else if (!jump && runnerY < RUNNER_START_Y) runnerY += JUMP_SPEED;
 
         timer++;
       }
 
+      function drawStartScreen() {
+        ctx.drawImage(titleImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.drawImage(startBtnImage, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
+      }
+
       canvas.addEventListener('click', e => {
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left, y = e.clientY - rect.top;
-        const btnX = (CANVAS_WIDTH - 200) / 2, btnY = (CANVAS_HEIGHT + 100) / 2;
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
         if (!gameStarted) {
+          const btnX = (CANVAS_WIDTH - 200) / 2;
+          const btnY = (CANVAS_HEIGHT + 100) / 2;
           if (x >= btnX && x <= btnX + 200 && y >= btnY && y <= btnY + 100) {
             gameStarted = true;
             animate();
           }
         } else if (gameOver) {
-          const rx = (CANVAS_WIDTH - 100) / 2, ry = (CANVAS_HEIGHT + 50) / 2;
-          if (x >= rx && x <= rx + 100 && y >= ry && y <= ry + 50) {
+          const restartX = (CANVAS_WIDTH - 100) / 2;
+          const restartY = (CANVAS_HEIGHT + 50) / 2;
+          if (x >= restartX && x <= restartX + 100 && y >= restartY && y <= restartY + 50) {
             location.reload();
           }
         }
@@ -245,9 +225,16 @@
       document.addEventListener('keydown', e => {
         if (e.code === 'Space') jump = true;
       });
+
       document.addEventListener('keyup', e => {
         if (e.code === 'Space') jump = false;
       });
+
+      titleImage.onload = () => {
+        startBtnImage.onload = () => {
+          drawStartScreen();
+        };
+      };
     };
   </script>
 </body>
