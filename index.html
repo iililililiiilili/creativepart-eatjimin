@@ -37,216 +37,218 @@
   <p id="score">현재점수: 0</p>
   <main><canvas id="canvas"></canvas></main>
 
-<script>
-const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
-const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
-const RUNNER_START_X = 10, RUNNER_START_Y = 400;
-const JUMP_SPEED = 6, MAX_JUMP_HEIGHT = 20;
-const BASE_OBSTACLE_SPEED = 4, BASE_OBSTACLE_FREQUENCY = 90;
-const SCORE_PER_OBSTACLE = 10;
-const VILLAIN_WIDTH = 300, VILLAIN_HEIGHT = 300;
+  <script>
+    const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
+    const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
+    const VILLAIN_WIDTH = 300, VILLAIN_HEIGHT = 300;
+    const RUNNER_START_X = 10, RUNNER_START_Y = 400;
+    const JUMP_SPEED = 6, MAX_JUMP_HEIGHT = 20;
+    const BASE_OBSTACLE_SPEED = 4, BASE_OBSTACLE_FREQUENCY = 90;
+    const SCORE_PER_OBSTACLE = 10;
 
-const ASSETS = {
-  title: './background/title.png',
-  startBtn: './background/gamestart.png',
-  runnerSit: './character/jimin-sit.png',
-  runnerFly: './character/jimin-fly.png',
-  runnerCrash: './character/jimin-crash.png',
-  backgrounds: [
-    './background/samin-background.png',
-    './background/sohyun-background.png',
-    './background/doyun-background.png',
-    './background/yeonki-background.png',
-    './background/sangwoo-background.png',
-    './background/boss-background.png'
-  ],
-  villains: [
-    './character/samin-basic.png',
-    './character/sohyun-basic.png',
-    './character/doyun-basic.png',
-    './character/yeonki-basic.png',
-    './character/sangwoo-basic.png',
-    './character/boss-basic.png'
-  ],
-  obstacles: [
-    './character/samin-obstacle.png',
-    './character/sohyun-obstacle.png',
-    './character/doyun-obstacle.png',
-    './character/yeonki-obstacle.png',
-    './character/sangwoo-obstacle.png'
-  ]
-};
+    const ASSETS = {
+      title: './background/title.png',
+      startBtn: './background/gamestart.png',
+      gameOver: './background/gameover.png',
+      restart: './background/restart.png',
+      runnerSit: './character/jimin-sit.png',
+      runnerFly: './character/jimin-fly.png',
+      runnerCrash: './character/jimin-crash.png',
+      backgrounds: [
+        './background/samin-background.png',
+        './background/sohyun-background.png',
+        './background/doyun-background.png',
+        './background/yeonki-background.png',
+        './background/sangwoo-background.png',
+        './background/boss-background.png'
+      ],
+      villains: [
+        './character/samin-basic.png',
+        './character/sohyun-basic.png',
+        './character/doyun-basic.png',
+        './character/yeonki-basic.png',
+        './character/sangwoo-basic.png',
+        './character/boss-basic.png'
+      ],
+      obstacles: [
+        './character/samin-obstacle.png',
+        './character/sohyun-obstacle.png',
+        './character/doyun-obstacle.png',
+        './character/yeonki-obstacle.png',
+        './character/sangwoo-obstacle.png'
+      ]
+    };
 
-window.onload = () => {
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = CANVAS_WIDTH;
-  canvas.height = CANVAS_HEIGHT;
+    window.onload = () => {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = CANVAS_WIDTH;
+      canvas.height = CANVAS_HEIGHT;
 
-  let gameStarted = false;
-  let gameOver = false;
-  let score = 0;
-  let timer = 0;
-  let jump = false;
-  let runnerY = RUNNER_START_Y;
-  let bgIndex = 0;
-  let villainY = CANVAS_HEIGHT;
-  let targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
-  let villainReady = false;
-  let obstacleSpeed = BASE_OBSTACLE_SPEED;
-  let obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
+      let gameStarted = false, gameOver = false;
+      let score = 0, timer = 0, jump = false;
+      let runnerY = RUNNER_START_Y;
+      let villainY = CANVAS_HEIGHT, targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
+      let villainReady = false;
+      let bgIndex = 0, obstacleSpeed = BASE_OBSTACLE_SPEED, obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
 
-  const scoreText = document.getElementById('score');
+      const scoreText = document.getElementById('score');
+      const images = {};
 
-  const titleImage = new Image();
-  const startBtnImage = new Image();
-  const runnerSit = new Image();
-  const runnerFly = new Image();
-  const runnerCrash = new Image();
-  const bgImages = ASSETS.backgrounds.map(src => { const i = new Image(); i.src = src; return i; });
-  const villainImages = ASSETS.villains.map(src => { const i = new Image(); i.src = src; return i; });
-  const obstacleImages = ASSETS.obstacles.map(src => { const i = new Image(); i.src = src; return i; });
-
-  titleImage.src = ASSETS.title;
-  startBtnImage.src = ASSETS.startBtn;
-  runnerSit.src = ASSETS.runnerSit;
-  runnerFly.src = ASSETS.runnerFly;
-  runnerCrash.src = ASSETS.runnerCrash;
-
-  let imagesToLoad = 2;
-  let loadedImages = 0;
-
-  function checkLoaded() {
-    loadedImages++;
-    if (loadedImages === imagesToLoad) {
-      drawStartScreen();
-    }
-  }
-
-  titleImage.onload = checkLoaded;
-  startBtnImage.onload = checkLoaded;
-
-  function drawStartScreen() {
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.drawImage(titleImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.drawImage(startBtnImage, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
-  }
-
-  class Obstacle {
-    constructor(image) {
-      this.x = CANVAS_WIDTH;
-      this.y = Math.random() * (CANVAS_HEIGHT - 80) + 30;
-      this.width = 50;
-      this.height = 50;
-      this.image = image;
-      this.frame = 0;
-    }
-    draw() {
-      ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-    }
-  }
-
-  const obstacles = [];
-
-  function drawBackground() {
-    ctx.drawImage(bgImages[bgIndex], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-  }
-
-  function drawVillain() {
-    ctx.drawImage(villainImages[bgIndex], CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
-  }
-
-  function isCollision(a, b) {
-    return !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
-  }
-
-  function animate() {
-    if (gameOver) return;
-    requestAnimationFrame(animate);
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    drawBackground();
-
-    if (!villainReady && villainY > targetVillainY) {
-      villainY -= 5;
-    } else if (!villainReady) {
-      villainY = targetVillainY;
-      villainReady = true;
-    }
-    drawVillain();
-
-    if (villainReady && timer % obstacleFrequency === 0) {
-      if (bgIndex < 5) {
-        obstacles.push(new Obstacle(obstacleImages[bgIndex]));
-      } else {
-        for (let i = 0; i < 2; i++) {
-          const randomImg = obstacleImages[Math.floor(Math.random() * obstacleImages.length)];
-          obstacles.push(new Obstacle(randomImg));
+      let loaded = 0, total = 17; // 전체 로딩할 이미지 수
+      function checkLoaded() {
+        loaded++;
+        if (loaded >= total) {
+          drawStartScreen();
         }
       }
-    }
 
-    obstacles.forEach((obs, idx) => {
-      obs.x -= obstacleSpeed;
-      obs.draw();
-      if (isCollision({x:RUNNER_START_X,y:runnerY,width:RUNNER_WIDTH,height:RUNNER_HEIGHT}, obs)) {
-        gameOver = true;
+      function loadImage(name, src) {
+        images[name] = new Image();
+        images[name].src = src;
+        images[name].onload = checkLoaded;
       }
-      if (obs.x < -obs.width) {
-        obstacles.splice(idx, 1);
-        score += SCORE_PER_OBSTACLE;
-        scoreText.textContent = '현재점수: ' + score;
 
-        if (score % 200 === 0 && !gameOver) {
-          villainReady = false;
-          let exitInterval = setInterval(() => {
-            villainY += 5;
-            if (villainY >= CANVAS_HEIGHT) {
-              clearInterval(exitInterval);
-              bgIndex = Math.min(bgImages.length - 1, Math.floor(score / 200));
-              villainY = CANVAS_HEIGHT;
-              targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
-              obstacleSpeed += 1;
-              obstacleFrequency = Math.max(20, obstacleFrequency - 10);
+      loadImage('title', ASSETS.title);
+      loadImage('startBtn', ASSETS.startBtn);
+      loadImage('gameOver', ASSETS.gameOver);
+      loadImage('restart', ASSETS.restart);
+      loadImage('runnerSit', ASSETS.runnerSit);
+      loadImage('runnerFly', ASSETS.runnerFly);
+      loadImage('runnerCrash', ASSETS.runnerCrash);
+      ASSETS.backgrounds.forEach((src, idx) => loadImage('bg' + idx, src));
+      ASSETS.villains.forEach((src, idx) => loadImage('villain' + idx, src));
+      ASSETS.obstacles.forEach((src, idx) => loadImage('obstacle' + idx, src));
+
+      const obstacles = [];
+
+      class Obstacle {
+        constructor(img) {
+          this.x = CANVAS_WIDTH;
+          this.y = Math.random() * (CANVAS_HEIGHT - 80) + 30;
+          this.width = 50;
+          this.height = 50;
+          this.img = img;
+          this.frame = 0;
+        }
+        draw(wave = false) {
+          if (wave) this.y += Math.sin(this.frame++ / 5) * 2;
+          ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+        }
+      }
+
+      function isCollision(a, b) {
+        return !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
+      }
+
+      function drawStartScreen() {
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.drawImage(images.title, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.drawImage(images.startBtn, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
+      }
+
+      function drawGameOverScreen() {
+        ctx.drawImage(images.gameOver, (CANVAS_WIDTH - 300) / 2, (CANVAS_HEIGHT - 200) / 2, 300, 100);
+        ctx.drawImage(images.restart, (CANVAS_WIDTH - 100) / 2, (CANVAS_HEIGHT + 50) / 2, 100, 50);
+      }
+
+      function animate() {
+        if (gameOver) {
+          ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          drawGameOverScreen();
+          return;
+        }
+
+        requestAnimationFrame(animate);
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        ctx.drawImage(images['bg' + bgIndex], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (!villainReady && villainY > targetVillainY) {
+          villainY -= 5;
+        } else if (!villainReady && villainY <= targetVillainY) {
+          villainY = targetVillainY;
+          villainReady = true;
+        }
+
+        ctx.drawImage(images['villain' + bgIndex], CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
+
+        if (villainReady && timer % obstacleFrequency === 0) {
+          if (bgIndex < 5) {
+            obstacles.push(new Obstacle(images['obstacle' + bgIndex]));
+          } else {
+            for (let i = 0; i < 2; i++) {
+              const img = images['obstacle' + (Math.floor(Math.random() * 5))];
+              obstacles.push(new Obstacle(img));
             }
-          }, 30);
+          }
         }
+
+        obstacles.forEach((ob, idx) => {
+          ob.x -= obstacleSpeed;
+          ob.draw(bgIndex === 5);
+          if (isCollision({x: RUNNER_START_X, y: runnerY, width: RUNNER_WIDTH, height: RUNNER_HEIGHT}, ob)) {
+            gameOver = true;
+          }
+          if (ob.x < -ob.width) {
+            obstacles.splice(idx, 1);
+            score += SCORE_PER_OBSTACLE;
+            scoreText.textContent = '현재점수: ' + score;
+
+            if (score % 200 === 0) {
+              villainReady = false;
+              let exitInterval = setInterval(() => {
+                villainY += 5;
+                if (villainY >= CANVAS_HEIGHT) {
+                  clearInterval(exitInterval);
+                  bgIndex = Math.min(5, Math.floor(score / 200));
+                  obstacleSpeed += 1;
+                  obstacleFrequency = Math.max(20, obstacleFrequency - 10);
+                  villainY = CANVAS_HEIGHT;
+                }
+              }, 30);
+            }
+          }
+        });
+
+        const runnerImage = (!gameOver)
+          ? (jump || runnerY < RUNNER_START_Y ? images.runnerFly : images.runnerSit)
+          : images.runnerCrash;
+        if (jump && runnerY > MAX_JUMP_HEIGHT) {
+          runnerY -= JUMP_SPEED;
+        } else if (!jump && runnerY < RUNNER_START_Y) {
+          runnerY += JUMP_SPEED;
+        }
+        ctx.drawImage(runnerImage, RUNNER_START_X, runnerY, RUNNER_WIDTH, RUNNER_HEIGHT);
+
+        timer++;
       }
-    });
 
-    const runnerImage = jump || runnerY < RUNNER_START_Y ? runnerFly : runnerSit;
-    ctx.drawImage(runnerImage, RUNNER_START_X, runnerY, RUNNER_WIDTH, RUNNER_HEIGHT);
+      canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left, y = e.clientY - rect.top;
+        const btnX = (CANVAS_WIDTH - 200) / 2, btnY = (CANVAS_HEIGHT + 100) / 2;
 
-    if (jump && runnerY > MAX_JUMP_HEIGHT) {
-      runnerY -= JUMP_SPEED;
-    } else if (!jump && runnerY < RUNNER_START_Y) {
-      runnerY += JUMP_SPEED;
-    }
+        if (!gameStarted) {
+          if (x >= btnX && x <= btnX + 200 && y >= btnY && y <= btnY + 100) {
+            gameStarted = true;
+            animate();
+          }
+        } else if (gameOver) {
+          const rx = (CANVAS_WIDTH - 100) / 2, ry = (CANVAS_HEIGHT + 50) / 2;
+          if (x >= rx && x <= rx + 100 && y >= ry && y <= ry + 50) {
+            location.reload();
+          }
+        }
+      });
 
-    timer++;
-  }
-
-  canvas.addEventListener('click', e => {
-    if (!gameStarted) {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const btnX = (CANVAS_WIDTH - 200) / 2;
-      const btnY = (CANVAS_HEIGHT + 100) / 2;
-      if (x >= btnX && x <= btnX + 200 && y >= btnY && y <= btnY + 100) {
-        gameStarted = true;
-        animate();
-      }
-    }
-  });
-
-  document.addEventListener('keydown', e => {
-    if (e.code === 'Space') jump = true;
-  });
-  document.addEventListener('keyup', e => {
-    if (e.code === 'Space') jump = false;
-  });
-};
-</script>
+      document.addEventListener('keydown', e => {
+        if (e.code === 'Space') jump = true;
+      });
+      document.addEventListener('keyup', e => {
+        if (e.code === 'Space') jump = false;
+      });
+    };
+  </script>
 </body>
 </html>
