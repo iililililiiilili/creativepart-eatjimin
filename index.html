@@ -5,28 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>밥먹자! 안지민</title>
   <style>
-    body { background: #f0f0f0; font-size: 16px; margin: 0; padding: 20px; color: #333; }
-    canvas { display: block; margin: 0 auto; background: #fff; border: 1px solid #ccc; border-radius: 12px; }
-    #subtitle, #score { text-align: center; }
-    #subtitle { font-size: 20px; }
-    #score { font-size: 40px; font-weight: bold; margin-top: 20px; }
+    body {
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+    }
+    #subtitle, #score {
+      text-align: center;
+      font-weight: bold;
+    }
+    #subtitle {
+      font-size: 20px;
+    }
+    #score {
+      font-size: 40px;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
   <p id="subtitle">밥먹자! 안지민</p>
   <p id="score">현재점수: 0</p>
   <main><canvas id="canvas"></canvas></main>
+
   <script>
     const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
     const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
     const RUNNER_START_X = 10, RUNNER_START_Y = 400;
     const JUMP_SPEED = 6, MAX_JUMP_HEIGHT = 20;
-    const BASE_OBSTACLE_SPEED = 4, BASE_OBSTACLE_FREQUENCY = 90;
+    const OBSTACLE_SPEED_BASE = 4;
+    const OBSTACLE_FREQUENCY_BASE = 90;
     const SCORE_PER_OBSTACLE = 10;
     const VILLAIN_WIDTH = 150 * 2, VILLAIN_HEIGHT = 200 * 1.5;
 
     const ASSETS = {
-      title: './background/title.png',
+      backgroundTitle: './background/title.png',
       startBtn: './background/gamestart.png',
       gameOver: './background/gameover.png',
       restart: './background/restart.png',
@@ -64,48 +84,50 @@
       canvas.width = CANVAS_WIDTH;
       canvas.height = CANVAS_HEIGHT;
 
-      let score = 0, timer = 0, jump = false, gameStarted = false, gameOver = false;
-      let stage = 0;
-      let villainY = CANVAS_HEIGHT, targetVillainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
-      let villainReady = false, villainExiting = false;
-      let obstacleSpeed = BASE_OBSTACLE_SPEED, obstacleFrequency = BASE_OBSTACLE_FREQUENCY;
-
       const scoreText = document.getElementById('score');
-      const images = {};
-      const imagePaths = {
-        title: ASSETS.title,
-        startBtn: ASSETS.startBtn,
-        gameOver: ASSETS.gameOver,
-        restart: ASSETS.restart,
-        runnerSit: ASSETS.runnerSit,
-        runnerFly: ASSETS.runnerFly,
-        runnerCrash: ASSETS.runnerCrash,
-        ...Object.fromEntries(ASSETS.backgrounds.map((src, i) => [`bg${i}`, src])),
-        ...Object.fromEntries(ASSETS.villains.map((src, i) => [`villain${i}`, src])),
-        ...Object.fromEntries(ASSETS.obstacles.map((src, i) => [`obstacle${i}`, src]))
-      };
 
-      const loadAllImages = () => {
-        const entries = Object.entries(imagePaths);
-        let loaded = 0;
-        return new Promise(resolve => {
-          entries.forEach(([key, src]) => {
-            const img = new Image();
-            img.src = src;
-            img.onload = () => {
-              images[key] = img;
-              if (++loaded === entries.length) resolve();
-            };
-          });
-        });
-      };
+      let images = {};
+      let totalAssets = 3 + ASSETS.backgrounds.length + ASSETS.villains.length + ASSETS.obstacles.length;
+      let loadedCount = 0;
+      let gameStarted = false, gameOver = false;
+      let score = 0, timer = 0;
+      let jump = false, runnerY = RUNNER_START_Y;
+      let currentStage = 0, villainY = CANVAS_HEIGHT, villainReady = false;
+      let obstacleSpeed = OBSTACLE_SPEED_BASE;
+      let obstacleFrequency = OBSTACLE_FREQUENCY_BASE;
+      let currentVillainImage = null;
+      let villainEntering = true;
 
       const runner = {
-        x: RUNNER_START_X,
-        y: RUNNER_START_Y,
         width: RUNNER_WIDTH,
-        height: RUNNER_HEIGHT
+        height: RUNNER_HEIGHT,
+        x: RUNNER_START_X,
+        y: RUNNER_START_Y
       };
+
+      const loadImage = (name, src) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          images[name] = img;
+          loadedCount++;
+          if (loadedCount === totalAssets) drawStartScreen();
+        };
+      };
+
+      loadImage('title', ASSETS.backgroundTitle);
+      loadImage('startBtn', ASSETS.startBtn);
+      loadImage('gameOver', ASSETS.gameOver);
+      loadImage('restart', ASSETS.restart);
+      loadImage('runnerSit', ASSETS.runnerSit);
+      loadImage('runnerFly', ASSETS.runnerFly);
+      loadImage('runnerCrash', ASSETS.runnerCrash);
+
+      ASSETS.backgrounds.forEach((src, i) => loadImage(`bg${i}`, src));
+      ASSETS.villains.forEach((src, i) => loadImage(`villain${i}`, src));
+      ASSETS.obstacles.forEach((src, i) => loadImage(`obstacle${i}`, src));
+
+      const obstacles = [];
 
       class Obstacle {
         constructor(image) {
@@ -116,124 +138,123 @@
           this.image = image;
           this.frame = 0;
         }
+
         draw(wave = false) {
           if (wave) this.y += Math.sin(this.frame++ / 5) * 2;
           ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
         }
       }
 
-      const obstacles = [];
-
-      const drawStartScreen = () => {
+      function drawStartScreen() {
         ctx.drawImage(images.title, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         ctx.drawImage(images.startBtn, (CANVAS_WIDTH - 200) / 2, (CANVAS_HEIGHT + 100) / 2, 200, 100);
-      };
+      }
 
-      const drawGameOver = () => {
+      function drawGameOverScreen() {
         ctx.drawImage(images.gameOver, (CANVAS_WIDTH - 300) / 2, (CANVAS_HEIGHT - 200) / 2, 300, 100);
         ctx.drawImage(images.restart, (CANVAS_WIDTH - 100) / 2, (CANVAS_HEIGHT + 50) / 2, 100, 50);
-      };
+      }
 
-      const isCollision = (a, b) =>
-        !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
+      function isCollision(a, b) {
+        return !(a.x > b.x + b.width || a.x + a.width < b.x || a.y > b.y + b.height || a.y + a.height < b.y);
+      }
 
-      const updateStage = () => {
-        stage = Math.floor(score / 200);
-        villainReady = false;
-        villainExiting = true;
-        const exitAnim = setInterval(() => {
-          villainY += 5;
-          if (villainY >= CANVAS_HEIGHT) {
-            clearInterval(exitAnim);
-            villainExiting = false;
-            obstacleSpeed += 1;
-            obstacleFrequency = Math.max(20, BASE_OBSTACLE_FREQUENCY - stage * 10);
-            villainY = CANVAS_HEIGHT;
-          }
-        }, 30);
-      };
+      function animate() {
+        if (gameOver) {
+          drawGameOverScreen();
+          return;
+        }
 
-      const animate = () => {
         requestAnimationFrame(animate);
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // 배경
-        ctx.drawImage(images[`bg${Math.min(stage, 5)}`], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        const stage = Math.min(Math.floor(score / 200), 5);
+        if (stage !== currentStage) {
+          currentStage = stage;
+          villainY = CANVAS_HEIGHT;
+          villainReady = false;
+          obstacleSpeed = OBSTACLE_SPEED_BASE + stage;
+          obstacleFrequency = Math.max(20, OBSTACLE_FREQUENCY_BASE - stage * 10);
+        }
 
-        // 악당 등장
-        if (!villainReady && !villainExiting) {
-          if (villainY > targetVillainY) {
-            villainY -= 5;
-          } else {
-            villainY = targetVillainY;
+        ctx.drawImage(images['bg' + currentStage], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        if (!villainReady) {
+          villainY -= 5;
+          if (villainY <= CANVAS_HEIGHT - VILLAIN_HEIGHT) {
+            villainY = CANVAS_HEIGHT - VILLAIN_HEIGHT;
             villainReady = true;
           }
         }
 
-        // 악당
-        ctx.drawImage(images[`villain${Math.min(stage, 5)}`], CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
+        ctx.drawImage(images['villain' + currentStage], CANVAS_WIDTH - VILLAIN_WIDTH, villainY, VILLAIN_WIDTH, VILLAIN_HEIGHT);
 
-        // 장애물 생성
         if (villainReady && timer % obstacleFrequency === 0) {
-          if (stage < 5) {
-            obstacles.push(new Obstacle(images[`obstacle${stage}`]));
+          if (currentStage < 5) {
+            obstacles.push(new Obstacle(images['obstacle' + currentStage]));
           } else {
             for (let i = 0; i < 2; i++) {
-              const img = images[`obstacle${Math.floor(Math.random() * 5)}`];
+              const img = images['obstacle' + (Math.floor(Math.random() * 5))];
               obstacles.push(new Obstacle(img));
             }
           }
         }
 
-        // 장애물 처리
         obstacles.forEach((obs, i) => {
           obs.x -= obstacleSpeed;
-          obs.draw(stage === 5);
-          if (isCollision(runner, obs)) gameOver = true;
-          if (obs.x < -obs.width) {
+          obs.draw(currentStage === 5);
+          if (isCollision(runner, obs)) {
+            gameOver = true;
+          }
+          if (obs.x + obs.width < 0) {
             obstacles.splice(i, 1);
             score += SCORE_PER_OBSTACLE;
             scoreText.textContent = '현재점수: ' + score;
-            if (score % 200 === 0) updateStage();
           }
         });
 
-        // 러너
-        const runnerImage = gameOver ? images.runnerCrash : (jump || runner.y < RUNNER_START_Y ? images.runnerFly : images.runnerSit);
+        runner.y += jump ? -JUMP_SPEED : JUMP_SPEED;
+        if (runner.y < MAX_JUMP_HEIGHT) {
+          runner.y = MAX_JUMP_HEIGHT;
+        }
+        if (runner.y > RUNNER_START_Y) {
+          runner.y = RUNNER_START_Y;
+        }
+
+        const runnerImage = gameOver ? images.runnerCrash : (jump || runner.y < RUNNER_START_Y) ? images.runnerFly : images.runnerSit;
         ctx.drawImage(runnerImage, runner.x, runner.y, runner.width, runner.height);
 
-        if (jump && runner.y > MAX_JUMP_HEIGHT) runner.y -= JUMP_SPEED;
-        else if (!jump && runner.y < RUNNER_START_Y) runner.y += JUMP_SPEED;
-        if (runner.y < MAX_JUMP_HEIGHT) runner.y = MAX_JUMP_HEIGHT;
-        if (runner.y > RUNNER_START_Y) runner.y = RUNNER_START_Y;
-
         timer++;
+      }
 
-        if (gameOver) drawGameOver();
-      };
+      canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-      loadAllImages().then(() => {
-        drawStartScreen();
-        canvas.addEventListener('click', e => {
-          const rect = canvas.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
+        if (!gameStarted) {
           const btnX = (CANVAS_WIDTH - 200) / 2;
           const btnY = (CANVAS_HEIGHT + 100) / 2;
-
-          if (!gameStarted && x >= btnX && x <= btnX + 200 && y >= btnY && y <= btnY + 100) {
+          if (x >= btnX && x <= btnX + 200 && y >= btnY && y <= btnY + 100) {
             gameStarted = true;
             animate();
-          } else if (gameOver &&
-            x >= (CANVAS_WIDTH - 100) / 2 && x <= (CANVAS_WIDTH + 100) / 2 &&
-            y >= (CANVAS_HEIGHT + 50) / 2 && y <= (CANVAS_HEIGHT + 100) / 2) {
+          }
+        } else if (gameOver) {
+          const restartX = (CANVAS_WIDTH - 100) / 2;
+          const restartY = (CANVAS_HEIGHT + 50) / 2;
+          if (x >= restartX && x <= restartX + 100 && y >= restartY && y <= restartY + 50) {
             location.reload();
           }
-        });
+        }
       });
 
-      document.addEventListener('keydown', e => { if (e.code === 'Space') jump = true; });
-      document.addEventListener('keyup', e => { if (e.code === 'Space') jump = false; });
+      document.addEventListener('keydown', e => {
+        if (e.code === 'Space') jump = true;
+      });
+
+      document.addEventListener('keyup', e => {
+        if (e.code === 'Space') jump = false;
+      });
     };
   </script>
 </body>
