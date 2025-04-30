@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>밥먹자! 안지민</title>
+  <style>
+    body {
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+    }
+    #subtitle, #score {
+      text-align: center;
+      font-weight: bold;
+    }
+    #subtitle {
+      font-size: 20px;
+    }
+    #score {
+      font-size: 40px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <p id="subtitle">밥먹자! 안지민</p>
+  <p id="score">현재점수: 0</p>
+  <main><canvas id="canvas"></canvas></main>
+
+  <script>
+    const CANVAS_WIDTH = 800, CANVAS_HEIGHT = 500;
+    const RUNNER_WIDTH = 100, RUNNER_HEIGHT = 100;
+    const RUNNER_START_X = 10, RUNNER_START_Y = 400;
+    const JUMP_SPEED = 6, MAX_JUMP_HEIGHT = 20;
+    const OBSTACLE_SPEED_BASE = 4;
+    const OBSTACLE_FREQUENCY_BASE = 90;
+    const SCORE_PER_OBSTACLE = 10;
+    const VILLAIN_WIDTH = 150 * 2, VILLAIN_HEIGHT = 200 * 1.5;
+
+    const ASSETS = {
+      backgroundTitle: './background/title.png',
+      startBtn: './background/gamestart.png',
+      gameOver: './background/gameover.png',
+      restart: './background/restart.png',
+      runnerSit: './character/jimin-sit.png',
+      runnerFly: './character/jimin-fly.png',
+      runnerCrash: './character/jimin-crash.png',
+      backgrounds: [
+        './background/samin-background.png',
+        './background/sohyun-background.png',
+        './background/doyun-background.png',
+        './background/yeonki-background.png',
+        './background/sangwoo-background.png',
+        './background/boss-background.png'
+      ],
+      villains: [
+        './character/samin-basic.png',
+        './character/sohyun-basic.png',
+        './character/doyun-basic.png',
+        './character/yeonki-basic.png',
+        './character/sangwoo-basic.png',
+        './character/boss-basic.png'
+      ],
+      obstacles: [
+        './character/samin-obstacle.png',
+        './character/sohyun-obstacle.png',
+        './character/doyun-obstacle.png',
+        './character/yeonki-obstacle.png',
+        './character/sangwoo-obstacle.png'
+      ]
+    };
+
+    // JavaScript core logic would be appended here...
+
+  </script>
+</body>
+</html>
